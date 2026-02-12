@@ -11,7 +11,11 @@
       "WebFetch(domain:localhost)",
       "Bash(curl:*)",
       "Bash(npx vite:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

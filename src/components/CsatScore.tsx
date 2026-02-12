@@ -59,36 +59,32 @@ function StarIcon() {
 }
 
 function GaugeChart({ score }: { score: number }) {
-  const angle = (score / 100) * 180;
-  const r = 60;
   const cx = 72;
-  const cy = 65;
+  const cy = 72;
+  const r = 64;
+  const sw = 16;
+  const pct = score / 100;
 
-  const arcPath = (startAngle: number, endAngle: number) => {
-    const s = (startAngle * Math.PI) / 180;
-    const e = (endAngle * Math.PI) / 180;
-    const x1 = cx + r * Math.cos(Math.PI + s);
-    const y1 = cy + r * Math.sin(Math.PI + s);
-    const x2 = cx + r * Math.cos(Math.PI + e);
-    const y2 = cy + r * Math.sin(Math.PI + e);
-    const large = endAngle - startAngle > 180 ? 1 : 0;
-    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
-  };
+  // Full semicircle background arc (left to right)
+  const bgArc = `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`;
+
+  // Value arc: starts from right (clockwise from top-right going counter-clockwise visually)
+  // The value path covers (1 - pct) of the semicircle from the end going backwards
+  // Figma draws the colored portion as the "filled" part from left
+  const endAngle = Math.PI * pct; // angle from left side
+  const ex = cx - r * Math.cos(endAngle);
+  const ey = cy - r * Math.sin(endAngle);
+  const large = pct > 0.5 ? 1 : 0;
+  const valArc = `M ${cx + r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`;
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center relative" style={{ width: 144, height: 120 }}>
       <svg width="144" height="80" viewBox="0 0 144 80">
-        <path d={arcPath(0, 180)} fill="none" stroke="#E8E8E8" strokeWidth="12" strokeLinecap="round" />
-        <path d={arcPath(0, angle)} fill="none" stroke={PURPLE} strokeWidth="12" strokeLinecap="round" />
-        <circle
-          cx={cx + (r - 2) * Math.cos(Math.PI + (angle * Math.PI) / 180)}
-          cy={cy + (r - 2) * Math.sin(Math.PI + (angle * Math.PI) / 180)}
-          r="4"
-          fill="#302E2A"
-        />
+        <path d={bgArc} fill="none" stroke="#EFEFEF" strokeWidth={sw} />
+        <path d={valArc} fill="none" stroke={PURPLE} strokeWidth={sw} />
       </svg>
-      <div className="flex flex-col items-center -mt-4">
-        <span className="text-xs font-normal text-title-secondary">CSAT</span>
+      <div className="absolute flex flex-col items-center" style={{ top: 56, left: "50%" , transform: "translateX(-50%)" }}>
+        <span className="text-xs font-normal leading-3 text-title-secondary">CSAT</span>
         <span className="text-[28px] font-semibold text-black leading-8">{score}%</span>
       </div>
     </div>
