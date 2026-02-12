@@ -16,7 +16,7 @@ function QuestionBlock({ title, children }: { title: string; children: React.Rea
 
 function App() {
   return (
-    <div className="flex flex-col items-center min-h-screen pt-24 px-8 pb-8" style={{ gap: "36px" }}>
+    <div className="flex flex-col items-center min-h-screen pt-24 px-8 pb-8" style={{ gap: "56px" }}>
       <TopHeader />
       <QuestionBlock title="Multiply Choice Question">
         <MultiplyResponse />

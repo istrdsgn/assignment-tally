@@ -1,35 +1,10 @@
 import { useState, useRef } from "react";
 import Dropdown from "./Dropdown";
+import QuestionBadge from "./QuestionBadge";
 
 type ViewMode = "overview" | "detailed";
 type DetailedTab = "histogram" | "stacked" | "trend";
 type DatePeriod = "Last 30 days" | "Last 3 months" | "Last 6 months" | "All time";
-
-// NPS data
-const NPS_SCORE = 48;
-const MEDIAN = 8;
-const AVERAGE = 8.4;
-const TOTAL_RESPONSES = 480;
-
-const CATEGORIES = [
-  { label: "Detractors", color: "#D8D8D8", responses: 16 },
-  { label: "Passives", color: "#FB813F", responses: 129 },
-  { label: "Promoters", color: "#27A674", responses: 244 },
-];
-
-// Histogram data (scores 1-10)
-const HISTOGRAM_DATA = [
-  { score: 1, value: 14, type: "detractor" },
-  { score: 2, value: 8, type: "detractor" },
-  { score: 3, value: 23, type: "detractor" },
-  { score: 4, value: 23, type: "detractor" },
-  { score: 5, value: 17, type: "detractor" },
-  { score: 6, value: 23, type: "detractor" },
-  { score: 7, value: 23, type: "passive" },
-  { score: 8, value: 46, type: "passive" },
-  { score: 9, value: 76, type: "promoter" },
-  { score: 10, value: 40, type: "promoter" },
-];
 
 const BAR_COLORS: Record<string, string> = {
   detractor: "#D8D8D8",
@@ -37,81 +12,106 @@ const BAR_COLORS: Record<string, string> = {
   promoter: "#27A674",
 };
 
-// Stacked data (daily over a month)
-const STACKED_DATA = Array.from({ length: 31 }, (_, i) => {
-  const day = i + 1;
-  const promoters = 20 + Math.floor(Math.random() * 40);
-  const passives = 10 + Math.floor(Math.random() * 20);
-  const detractors = 5 + Math.floor(Math.random() * 15);
-  const total = promoters + passives + detractors;
-  return {
-    label: `Mar ${day}`,
-    promoters: Math.round((promoters / total) * 100),
-    passives: Math.round((passives / total) * 100),
-    detractors: Math.round((detractors / total) * 100),
-    rawPromoters: promoters,
-    rawPassives: passives,
-    rawDetractors: detractors,
-    total,
+// Seeded random for consistent data
+function seeded(seed: number) {
+  return () => {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return (seed - 1) / 2147483646;
   };
-});
-
-// Trend data (daily NPS over a month)
-const TREND_DATA = Array.from({ length: 31 }, (_, i) => ({
-  label: `Mar ${i + 1}`,
-  nps: 10 + Math.floor(Math.random() * 60),
-  responses: 10 + Math.floor(Math.random() * 30),
-}));
-
-function QuestionIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path
-        d="M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1ZM5.5 8.5a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0ZM6 3.5c-.83 0-1.5.67-1.5 1.5a.5.5 0 0 0 1 0c0-.28.22-.5.5-.5s.5.22.5.5c0 .18-.07.27-.33.47l-.1.08C5.83 5.71 5.5 6.04 5.5 6.75a.5.5 0 0 0 1 0c0-.18.07-.27.33-.47l.1-.08C7.17 5.54 7.5 5.21 7.5 4.5 7.5 3.67 6.83 3 6 3.5Z"
-        fill="#9E9D98"
-      />
-    </svg>
-  );
 }
+
+interface NpsPeriodData {
+  score: number;
+  median: number;
+  average: number;
+  total: number;
+  categories: { label: string; color: string; responses: number }[];
+  histogram: { score: number; value: number; type: string }[];
+  stacked: { label: string; promoters: number; passives: number; detractors: number; rawPromoters: number; rawPassives: number; rawDetractors: number; total: number }[];
+  trend: { label: string; nps: number; responses: number }[];
+}
+
+function generateNpsData(seed: number, days: number, month: string, baseScore: number): NpsPeriodData {
+  const rng = seeded(seed);
+  const histogram = Array.from({ length: 10 }, (_, i) => {
+    const type = i < 6 ? "detractor" : i < 8 ? "passive" : "promoter";
+    return { score: i + 1, value: 5 + Math.floor(rng() * 70), type };
+  });
+  const det = histogram.filter(h => h.type === "detractor").reduce((s, h) => s + h.value, 0);
+  const pas = histogram.filter(h => h.type === "passive").reduce((s, h) => s + h.value, 0);
+  const pro = histogram.filter(h => h.type === "promoter").reduce((s, h) => s + h.value, 0);
+  const total = det + pas + pro;
+
+  const stacked = Array.from({ length: days }, (_, i) => {
+    const p = 20 + Math.floor(rng() * 40);
+    const pa = 10 + Math.floor(rng() * 20);
+    const d = 5 + Math.floor(rng() * 15);
+    const t = p + pa + d;
+    return {
+      label: `${month} ${i + 1}`,
+      promoters: Math.round((p / t) * 100),
+      passives: Math.round((pa / t) * 100),
+      detractors: Math.round((d / t) * 100),
+      rawPromoters: p, rawPassives: pa, rawDetractors: d, total: t,
+    };
+  });
+
+  const trend = Array.from({ length: days }, (_, i) => ({
+    label: `${month} ${i + 1}`,
+    nps: 10 + Math.floor(rng() * 60),
+    responses: 10 + Math.floor(rng() * 30),
+  }));
+
+  return {
+    score: baseScore,
+    median: Math.round((7 + rng() * 3) * 10) / 10,
+    average: Math.round((7 + rng() * 3) * 10) / 10,
+    total,
+    categories: [
+      { label: "Detractors", color: "#D8D8D8", responses: det },
+      { label: "Passives", color: "#FB813F", responses: pas },
+      { label: "Promoters", color: "#27A674", responses: pro },
+    ],
+    histogram, stacked, trend,
+  };
+}
+
+const NPS_DATA: Record<DatePeriod, NpsPeriodData> = {
+  "Last 30 days": generateNpsData(42, 31, "Mar", 48),
+  "Last 3 months": generateNpsData(77, 31, "Jan", 52),
+  "Last 6 months": generateNpsData(123, 31, "Oct", 45),
+  "All time": generateNpsData(999, 31, "Jun", 50),
+};
 
 // Gauge chart for Overview
 function GaugeChart({ score }: { score: number }) {
-  // Score range: -100 to 100, map to 0-180 degrees
-  const angle = ((score + 100) / 200) * 180;
-  const r = 60;
   const cx = 72;
-  const cy = 65;
+  const cy = 72;
+  const r = 64;
+  const sw = 16;
 
-  const arcPath = (startAngle: number, endAngle: number) => {
-    const s = (startAngle * Math.PI) / 180;
-    const e = (endAngle * Math.PI) / 180;
-    const x1 = cx + r * Math.cos(Math.PI + s);
-    const y1 = cy + r * Math.sin(Math.PI + s);
-    const x2 = cx + r * Math.cos(Math.PI + e);
-    const y2 = cy + r * Math.sin(Math.PI + e);
-    const large = endAngle - startAngle > 180 ? 1 : 0;
+  // Arc from angle to angle (degrees, 0=left, 180=right, going clockwise over top)
+  const arcPath = (startDeg: number, endDeg: number) => {
+    const s = Math.PI - (startDeg * Math.PI) / 180;
+    const e = Math.PI - (endDeg * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(s);
+    const y1 = cy - r * Math.sin(s);
+    const x2 = cx + r * Math.cos(e);
+    const y2 = cy - r * Math.sin(e);
+    const large = (endDeg - startDeg) > 180 ? 1 : 0;
     return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
   };
 
+  // Detractors 1-6 = 6/10 = 108°, Passives 7-8 = 2/10 = 36°, Promoters 9-10 = 2/10 = 36°
   return (
-    <div className="flex flex-col items-center">
-      <svg width="144" height="80" viewBox="0 0 144 80">
-        {/* Detractors (gray): 0-108 degrees (0-6 on scale) */}
-        <path d={arcPath(0, 108)} fill="none" stroke="#D8D8D8" strokeWidth="12" strokeLinecap="round" />
-        {/* Passives (orange): 108-144 degrees (7-8) */}
-        <path d={arcPath(110, 142)} fill="none" stroke="#FB813F" strokeWidth="12" strokeLinecap="round" />
-        {/* Promoters (green): 144-180 degrees (9-10) */}
-        <path d={arcPath(144, 180)} fill="none" stroke="#27A674" strokeWidth="12" strokeLinecap="round" />
-        {/* Needle indicator */}
-        <circle
-          cx={cx + (r - 2) * Math.cos(Math.PI + (angle * Math.PI) / 180)}
-          cy={cy + (r - 2) * Math.sin(Math.PI + (angle * Math.PI) / 180)}
-          r="4"
-          fill="#302E2A"
-        />
+    <div className="flex flex-col items-center relative" style={{ width: 144, height: 108 }}>
+      <svg width="144" height="72" viewBox="0 0 144 72">
+        <path d={arcPath(0, 108)} fill="none" stroke="#D8D8D8" strokeWidth={sw} />
+        <path d={arcPath(108, 144)} fill="none" stroke="#FB813F" strokeWidth={sw} />
+        <path d={arcPath(144, 180)} fill="none" stroke="#27A674" strokeWidth={sw} />
       </svg>
-      <div className="flex flex-col items-center -mt-4">
-        <span className="text-xs font-normal text-title-secondary">NPS</span>
+      <div className="absolute flex flex-col items-center" style={{ top: 56, left: "50%", transform: "translateX(-50%)" }}>
+        <span className="text-xs font-normal leading-3 text-title-secondary">NPS</span>
         <span className="text-[28px] font-semibold text-black leading-8">{score}</span>
       </div>
     </div>
@@ -172,13 +172,13 @@ function Legend() {
 }
 
 // Overview view
-function OverviewView() {
+function OverviewView({ data }: { data: NpsPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   return (
     <div className="flex gap-6 items-center w-full">
       <div className="flex flex-1 flex-col h-[176px] justify-between overflow-hidden">
         <div className="flex flex-col" style={{ gap: "2px" }}>
-          {CATEGORIES.map((cat, i) => (
+          {data.categories.map((cat, i) => (
             <div
               key={cat.label}
               className={`flex items-center gap-3 pl-2.5 pr-4 rounded-lg transition-colors cursor-pointer h-8 ${
@@ -194,20 +194,20 @@ function OverviewView() {
           ))}
         </div>
         <div className="flex items-center px-2 h-4">
-          <span className="text-sm font-normal text-text-caption">Based on {TOTAL_RESPONSES} responces</span>
+          <span className="text-sm font-normal text-text-caption">Based on {data.total} responces</span>
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-4 items-center justify-center pt-6">
-        <GaugeChart score={NPS_SCORE} />
+        <GaugeChart score={data.score} />
         <div className="flex gap-2 items-center justify-center">
           <div className="flex gap-3 items-center justify-center px-2.5 py-1">
             <span className="text-sm font-normal text-text-secondary">Median:</span>
-            <span className="text-base font-medium text-title-secondary">{MEDIAN}</span>
+            <span className="text-base font-medium text-title-secondary">{data.median}</span>
           </div>
           <div className="w-px h-6 bg-black/12" />
           <div className="flex gap-3 items-center justify-center px-2.5 py-1">
             <span className="text-sm font-normal text-text-secondary">Average:</span>
-            <span className="text-base font-medium text-title-secondary">{AVERAGE}</span>
+            <span className="text-base font-medium text-title-secondary">{data.average}</span>
           </div>
         </div>
       </div>
@@ -216,11 +216,11 @@ function OverviewView() {
 }
 
 // Histogram view
-function HistogramView({ period }: { period: string }) {
+function HistogramView({ period, data }: { period: string; data: NpsPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
-  const maxVal = Math.max(...HISTOGRAM_DATA.map((d) => d.value));
+  const maxVal = Math.max(...data.histogram.map((d) => d.value));
 
   return (
     <div className="flex flex-col gap-4 w-full relative">
@@ -240,23 +240,23 @@ function HistogramView({ period }: { period: string }) {
             }}
             onMouseLeave={() => setHoveredIdx(null)}
           >
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
             </div>
-            {HISTOGRAM_DATA.map((d, i) => {
+            {data.histogram.map((d, i) => {
               const heightPct = (d.value / maxVal) * 100;
               return (
                 <div
                   key={i}
-                  className={`flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
+                  className={`relative z-10 flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
                     hoveredIdx === i ? "bg-[rgba(48,46,42,0.04)]" : ""
                   }`}
                   onMouseEnter={() => setHoveredIdx(i)}
                 >
                   <div
-                    className="w-4 rounded-t transition-all"
+                    className="w-4 rounded-t transition-all duration-300"
                     style={{
                       height: `${heightPct}%`,
                       backgroundColor: BAR_COLORS[d.type],
@@ -268,15 +268,15 @@ function HistogramView({ period }: { period: string }) {
             {hoveredIdx !== null && chartRef.current && (() => {
               const cw = chartRef.current!.offsetWidth;
               const ch = chartRef.current!.offsetHeight;
-              const count = HISTOGRAM_DATA.length;
+              const count = data.histogram.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
               const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
                 <NpsTooltip style={{ left, top, pointerEvents: "none" }}>
-                  <TooltipRow label="Responces:" value={HISTOGRAM_DATA[hoveredIdx].value} />
-                  <TooltipRow label="Share" value={`${Math.round((HISTOGRAM_DATA[hoveredIdx].value / TOTAL_RESPONSES) * 100)}%`} />
+                  <TooltipRow label="Responces:" value={data.histogram[hoveredIdx].value} />
+                  <TooltipRow label="Share" value={`${Math.round((data.histogram[hoveredIdx].value / data.total) * 100)}%`} />
                   <TooltipCaption text={period} />
                 </NpsTooltip>
               );
@@ -286,7 +286,7 @@ function HistogramView({ period }: { period: string }) {
         <div className="flex items-center w-full">
           <div className="w-8 shrink-0" />
           <div className="flex flex-1">
-            {HISTOGRAM_DATA.map((d, i) => (
+            {data.histogram.map((d, i) => (
               <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary">
                 {d.score}
               </div>
@@ -300,11 +300,11 @@ function HistogramView({ period }: { period: string }) {
 }
 
 // Stacked view
-function StackedView(_props: { period: string }) {
+function StackedView({ data }: { period: string; data: NpsPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
-  const visibleData = STACKED_DATA.filter((_, i) => i % 1 === 0);
+  const visibleData = data.stacked;
   const labelIndices = [0, 6, 13, 20, 27];
 
   return (
@@ -325,30 +325,30 @@ function StackedView(_props: { period: string }) {
             }}
             onMouseLeave={() => setHoveredIdx(null)}
           >
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
             </div>
             {visibleData.map((d, i) => (
               <div
                 key={i}
-                className={`flex flex-1 flex-col h-full justify-end cursor-pointer transition-colors ${
+                className={`relative z-10 flex flex-1 flex-col h-full justify-end cursor-pointer transition-colors ${
                   hoveredIdx === i ? "bg-[rgba(48,46,42,0.02)]" : ""
                 }`}
                 onMouseEnter={() => setHoveredIdx(i)}
               >
-                <div className="w-full flex flex-col">
+                <div className="w-2 mx-auto flex flex-col">
                   <div
-                    className="w-full rounded-t-sm"
+                    className="w-2 rounded-t-sm"
                     style={{ height: `${(d.promoters / 100) * 120}px`, backgroundColor: "#27A674" }}
                   />
                   <div
-                    className="w-full"
+                    className="w-2"
                     style={{ height: `${(d.passives / 100) * 120}px`, backgroundColor: "#FB813F" }}
                   />
                   <div
-                    className="w-full"
+                    className="w-2"
                     style={{ height: `${(d.detractors / 100) * 120}px`, backgroundColor: "#D8D8D8" }}
                   />
                 </div>
@@ -379,7 +379,7 @@ function StackedView(_props: { period: string }) {
           <div className="w-8 shrink-0" />
           <div className="flex flex-1">
             {visibleData.map((d, i) => (
-              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary">
+              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary whitespace-nowrap">
                 {labelIndices.includes(i) ? d.label : ""}
               </div>
             ))}
@@ -392,11 +392,11 @@ function StackedView(_props: { period: string }) {
 }
 
 // Trend view
-function TrendView(_props: { period: string }) {
+function TrendView({ data }: { period: string; data: NpsPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
-  const maxNps = Math.max(...TREND_DATA.map((d) => d.nps));
+  const maxNps = Math.max(...data.trend.map((d) => d.nps));
   const labelIndices = [0, 6, 13, 20, 27];
 
   return (
@@ -417,23 +417,23 @@ function TrendView(_props: { period: string }) {
             }}
             onMouseLeave={() => setHoveredIdx(null)}
           >
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
             </div>
-            {TREND_DATA.map((d, i) => {
+            {data.trend.map((d, i) => {
               const heightPct = (d.nps / maxNps) * 100;
               return (
                 <div
                   key={i}
-                  className={`flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
+                  className={`relative z-10 flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
                     hoveredIdx === i ? "bg-[rgba(48,46,42,0.04)]" : ""
                   }`}
                   onMouseEnter={() => setHoveredIdx(i)}
                 >
                   <div
-                    className="w-full rounded-t-sm bg-brand-accent"
+                    className="w-2 mx-auto rounded-t-sm bg-brand-accent transition-all duration-300"
                     style={{ height: `${heightPct}%` }}
                   />
                 </div>
@@ -442,16 +442,16 @@ function TrendView(_props: { period: string }) {
             {hoveredIdx !== null && chartRef.current && (() => {
               const cw = chartRef.current!.offsetWidth;
               const ch = chartRef.current!.offsetHeight;
-              const count = TREND_DATA.length;
+              const count = data.trend.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
               const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
                 <NpsTooltip style={{ left, top, pointerEvents: "none" }}>
-                  <TooltipRow label="NPS:" value={TREND_DATA[hoveredIdx].nps} />
-                  <TooltipRow label="Responces:" value={TREND_DATA[hoveredIdx].responses} />
-                  <TooltipCaption text={TREND_DATA[hoveredIdx].label} />
+                  <TooltipRow label="NPS:" value={data.trend[hoveredIdx].nps} />
+                  <TooltipRow label="Responces:" value={data.trend[hoveredIdx].responses} />
+                  <TooltipCaption text={data.trend[hoveredIdx].label} />
                 </NpsTooltip>
               );
             })()}
@@ -460,8 +460,8 @@ function TrendView(_props: { period: string }) {
         <div className="flex items-center w-full">
           <div className="w-8 shrink-0" />
           <div className="flex flex-1">
-            {TREND_DATA.map((d, i) => (
-              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary">
+            {data.trend.map((d, i) => (
+              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary whitespace-nowrap">
                 {labelIndices.includes(i) ? d.label : ""}
               </div>
             ))}
@@ -477,6 +477,7 @@ export default function NpsScore() {
   const [detailedTab, setDetailedTab] = useState<DetailedTab>("histogram");
   const [period, setPeriod] = useState<DatePeriod>("Last 30 days");
 
+  const data = NPS_DATA[period];
   const periods: DatePeriod[] = ["Last 30 days", "Last 3 months", "Last 6 months", "All time"];
   const viewOptions = ["Overview", "Detailed"] as const;
   type ViewLabel = typeof viewOptions[number];
@@ -494,9 +495,10 @@ export default function NpsScore() {
       <div className="flex items-center justify-between pl-2">
         <div className="flex gap-2 items-center">
           <span className="text-sm font-semibold text-title-secondary leading-4">Net Promoter Score</span>
-          <div className="bg-surface-secondary flex items-center p-0.5 rounded-full">
-            <QuestionIcon />
-          </div>
+          <QuestionBadge
+            title="Net Promoter Score"
+            description="A metric that measures customer loyalty by asking how likely they are to recommend on a scale of 0-10."
+          />
         </div>
         <div className="flex gap-2 items-center">
           <Dropdown value={viewLabel} options={[...viewOptions]} onChange={handleViewChange} />
@@ -515,7 +517,7 @@ export default function NpsScore() {
                 className={`px-3 py-1.5 text-sm font-normal border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
                   detailedTab === tab.key
                     ? "bg-[#f7f7f6] text-title-primary"
-                    : "bg-white text-text-secondary"
+                    : "bg-white text-text-secondary hover:bg-[#f7f7f6]"
                 }`}
               >
                 {tab.label}
@@ -526,10 +528,10 @@ export default function NpsScore() {
       )}
 
       {/* Content */}
-      {viewMode === "overview" && <OverviewView />}
-      {viewMode === "detailed" && detailedTab === "histogram" && <HistogramView period={period} />}
-      {viewMode === "detailed" && detailedTab === "stacked" && <StackedView period={period} />}
-      {viewMode === "detailed" && detailedTab === "trend" && <TrendView period={period} />}
+      {viewMode === "overview" && <OverviewView data={data} />}
+      {viewMode === "detailed" && detailedTab === "histogram" && <HistogramView period={period} data={data} />}
+      {viewMode === "detailed" && detailedTab === "stacked" && <StackedView period={period} data={data} />}
+      {viewMode === "detailed" && detailedTab === "trend" && <TrendView period={period} data={data} />}
     </div>
   );
 }

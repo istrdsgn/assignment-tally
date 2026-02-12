@@ -3,6 +3,7 @@ import iconChartSimple from "../assets/icons/chart-simple.svg";
 import iconChartHorizontal from "../assets/icons/chart-simple-horizontal.svg";
 import iconCircleQuarter from "../assets/icons/circle-quarter.svg";
 import Dropdown from "./Dropdown";
+import QuestionBadge from "./QuestionBadge";
 
 type ChartType = "vertical" | "horizontal" | "donut";
 type DatePeriod = "Last 30 days" | "Last 3 months" | "Last 6 months" | "All time";
@@ -13,27 +14,26 @@ interface ChoiceData {
   value: number;
 }
 
-const CHOICES: ChoiceData[] = [
-  { letter: "A", label: "What we gonna do today", value: 12 },
-  { letter: "B", label: "I think we should try play basketball", value: 13 },
-  { letter: "C", label: "Well, I probably agree with you", value: 50 },
-  { letter: "D", label: "Definetely", value: 25 },
+const LABELS = [
+  { letter: "A", label: "What we gonna do today" },
+  { letter: "B", label: "I think we should try play basketball" },
+  { letter: "C", label: "Well, I probably agree with you" },
+  { letter: "D", label: "Definetely" },
 ];
 
-const DONUT_COLORS = ["#1966CA", "#6B4FBB", "#2DB88A", "#E5AA28"];
+const DATA_BY_PERIOD: Record<DatePeriod, { values: number[]; total: number }> = {
+  "Last 30 days": { values: [12, 13, 50, 25], total: 480 },
+  "Last 3 months": { values: [18, 22, 38, 22], total: 1240 },
+  "Last 6 months": { values: [15, 28, 32, 25], total: 2680 },
+  "All time": { values: [20, 20, 35, 25], total: 4120 },
+};
 
-const TOTAL_RESPONSES = 480;
-
-function QuestionIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path
-        d="M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1ZM5.5 8.5a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0ZM6 3.5c-.83 0-1.5.67-1.5 1.5a.5.5 0 0 0 1 0c0-.28.22-.5.5-.5s.5.22.5.5c0 .18-.07.27-.33.47l-.1.08C5.83 5.71 5.5 6.04 5.5 6.75a.5.5 0 0 0 1 0c0-.18.07-.27.33-.47l.1-.08C7.17 5.54 7.5 5.21 7.5 4.5 7.5 3.67 6.83 3 6 3.5Z"
-        fill="#9E9D98"
-      />
-    </svg>
-  );
+function getChoices(period: DatePeriod): ChoiceData[] {
+  const d = DATA_BY_PERIOD[period];
+  return LABELS.map((l, i) => ({ ...l, value: d.values[i] }));
 }
+
+const DONUT_COLORS = ["#1966CA", "#6B4FBB", "#27A674", "#F37A3A"];
 
 // Tooltip component
 function Tooltip({
@@ -102,7 +102,7 @@ function VerticalBarChart({
               onMouseLeave={() => onHover(null)}
             >
               <div
-                className="w-6 bg-brand-accent rounded-t-[4px] transition-all"
+                className="w-4 bg-brand-accent rounded-t-[4px] transition-all"
                 style={{ height: `${heightPct}%` }}
               />
             </div>
@@ -146,7 +146,7 @@ function HorizontalBarChart({
               onMouseEnter={() => onHover(i)}
               onMouseLeave={() => onHover(null)}
             >
-              <div className="flex items-center" style={{ width: `${widthPct}%` }}>
+              <div className="flex items-center transition-all duration-300" style={{ width: `${widthPct}%` }}>
                 <div className="flex-1 h-4 bg-brand-accent rounded-r-[4px]" />
               </div>
             </div>
@@ -175,39 +175,44 @@ function DonutChart({
   onHover: (i: number | null) => void;
 }) {
   const total = choices.reduce((sum, c) => sum + c.value, 0);
-  const radius = 50;
-  const strokeWidth = 14;
-  const center = 60;
-  const circumference = 2 * Math.PI * radius;
+  const center = 72;
+  const radius = 54;
+  const strokeWidth = 18;
+  const gapAngle = 3; // degrees gap between segments
 
-  let cumulativeOffset = 0;
-  const segments = choices.map((choice, i) => {
-    const pct = choice.value / total;
-    const dashLength = pct * circumference;
-    const gap = circumference - dashLength;
-    const offset = -cumulativeOffset;
-    cumulativeOffset += dashLength;
-    return { dashLength, gap, offset, color: DONUT_COLORS[i], index: i };
+  // Build arc segments
+  const totalGap = gapAngle * choices.length;
+  const availableDeg = 360 - totalGap;
+
+  let currentAngle = -90; // start from top
+  const arcs = choices.map((choice, i) => {
+    const sweepDeg = (choice.value / total) * availableDeg;
+    const startRad = (currentAngle * Math.PI) / 180;
+    const endRad = ((currentAngle + sweepDeg) * Math.PI) / 180;
+    const x1 = center + radius * Math.cos(startRad);
+    const y1 = center + radius * Math.sin(startRad);
+    const x2 = center + radius * Math.cos(endRad);
+    const y2 = center + radius * Math.sin(endRad);
+    const largeArc = sweepDeg > 180 ? 1 : 0;
+    const d = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`;
+    currentAngle += sweepDeg + gapAngle;
+    return { d, color: DONUT_COLORS[i], index: i };
   });
 
   return (
     <div className="flex items-center justify-center w-full h-full">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        {segments.map((seg) => (
-          <circle
-            key={seg.index}
-            cx={center}
-            cy={center}
-            r={radius}
+      <svg width="144" height="144" viewBox="0 0 144 144">
+        {arcs.map((arc) => (
+          <path
+            key={arc.index}
+            d={arc.d}
             fill="none"
-            stroke={seg.color}
-            strokeWidth={hoveredIndex === seg.index ? strokeWidth + 3 : strokeWidth}
-            strokeDasharray={`${seg.dashLength} ${seg.gap}`}
-            strokeDashoffset={seg.offset}
+            stroke={arc.color}
+            strokeWidth={strokeWidth}
             strokeLinecap="butt"
-            transform={`rotate(-90 ${center} ${center})`}
-            className="cursor-pointer transition-all"
-            onMouseEnter={() => onHover(seg.index)}
+            opacity={hoveredIndex !== null && hoveredIndex !== arc.index ? 0.4 : 1}
+            className="cursor-pointer transition-opacity duration-200"
+            onMouseEnter={() => onHover(arc.index)}
             onMouseLeave={() => onHover(null)}
           />
         ))}
@@ -222,6 +227,9 @@ export default function MultiplyResponse() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  const choices = getChoices(period);
+  const totalResponses = DATA_BY_PERIOD[period].total;
 
   const chartTypes: { type: ChartType; icon: string }[] = [
     { type: "vertical", icon: iconChartSimple },
@@ -239,9 +247,10 @@ export default function MultiplyResponse() {
           <span className="text-sm font-semibold text-title-secondary leading-4">
             Multiply Response
           </span>
-          <div className="bg-surface-secondary flex items-center p-0.5 rounded-full">
-            <QuestionIcon />
-          </div>
+          <QuestionBadge
+            title="Multiple Choice Question"
+            description="A question where respondents select one or more answers from a predefined list of options."
+          />
         </div>
 
         <div className="flex gap-2 items-center">
@@ -252,10 +261,10 @@ export default function MultiplyResponse() {
                 key={type}
                 onClick={() => setChartType(type)}
                 className={`flex items-center justify-center p-1.5 border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
-                  chartType === type ? "bg-[#f7f7f6]" : "bg-white"
+                  chartType === type ? "bg-[#f7f7f6]" : "bg-white hover:bg-[#f7f7f6]"
                 }`}
               >
-                <img src={icon} alt="" className="w-4 h-4" style={{ opacity: chartType === type ? 1 : 0.5 }} />
+                <img src={icon} alt="" className="w-[14px] h-[14px]" style={{ opacity: chartType === type ? 1 : 0.5 }} />
               </button>
             ))}
           </div>
@@ -270,7 +279,7 @@ export default function MultiplyResponse() {
         {/* Left: Choices */}
         <div className="flex flex-1 flex-col gap-4 overflow-hidden">
           <div className="flex flex-col gap-1">
-            {CHOICES.map((choice, i) => (
+            {choices.map((choice, i) => (
               <div
                 key={i}
                 className={`flex flex-col items-start pl-2.5 pr-4 py-2 rounded-lg transition-colors cursor-pointer ${
@@ -294,7 +303,7 @@ export default function MultiplyResponse() {
           </div>
           <div className="flex items-center px-2 h-4">
             <span className="text-sm font-normal text-text-caption leading-4">
-              Based on {TOTAL_RESPONSES} responces
+              Based on {totalResponses} responces
             </span>
           </div>
         </div>
@@ -302,7 +311,7 @@ export default function MultiplyResponse() {
         {/* Right: Chart */}
         <div
           ref={chartRef}
-          className="flex flex-1 items-center justify-center relative"
+          className="flex flex-1 h-[188px] items-center justify-center relative"
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setMouseY(e.clientY - rect.top);
@@ -311,21 +320,21 @@ export default function MultiplyResponse() {
         >
           {chartType === "vertical" && (
             <VerticalBarChart
-              choices={CHOICES}
+              choices={choices}
               hoveredIndex={hoveredIndex}
               onHover={setHoveredIndex}
             />
           )}
           {chartType === "horizontal" && (
             <HorizontalBarChart
-              choices={CHOICES}
+              choices={choices}
               hoveredIndex={hoveredIndex}
               onHover={setHoveredIndex}
             />
           )}
           {chartType === "donut" && (
             <DonutChart
-              choices={CHOICES}
+              choices={choices}
               hoveredIndex={hoveredIndex}
               onHover={setHoveredIndex}
             />
@@ -334,7 +343,7 @@ export default function MultiplyResponse() {
             const container = chartRef.current!;
             const cw = container.offsetWidth;
             const ch = container.offsetHeight;
-            const count = CHOICES.length;
+            const count = choices.length;
             const barCenterX = ((hoveredIndex + 0.5) / count) * cw;
             const tooltipW = 180;
             const tooltipH = 110;
@@ -342,9 +351,9 @@ export default function MultiplyResponse() {
             const top = Math.max(0, Math.min(mouseY + 12, ch - tooltipH));
             return (
               <Tooltip
-                option={CHOICES[hoveredIndex].letter}
-                responses={Math.round((CHOICES[hoveredIndex].value / 100) * TOTAL_RESPONSES)}
-                share={`${CHOICES[hoveredIndex].value}%`}
+                option={choices[hoveredIndex].letter}
+                responses={Math.round((choices[hoveredIndex].value / 100) * totalResponses)}
+                share={`${choices[hoveredIndex].value}%`}
                 period={period}
                 style={{ left, top, pointerEvents: "none" }}
               />

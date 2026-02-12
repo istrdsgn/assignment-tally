@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@utility font-normal {
+  font-weight: 360;
+}
+
 @theme {
   --font-inter: "Inter", sans-serif;
   --color-title-primary: #302E2A;

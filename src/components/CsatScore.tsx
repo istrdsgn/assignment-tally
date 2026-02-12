@@ -1,48 +1,60 @@
 import { useState, useRef } from "react";
 import Dropdown from "./Dropdown";
+import QuestionBadge from "./QuestionBadge";
 
 type ViewMode = "overview" | "detailed";
 type DetailedTab = "histogram" | "trend";
 type DatePeriod = "Last 30 days" | "Last 3 months" | "Last 6 months" | "All time";
 
-const CSAT_SCORE = 72;
-const MEDIAN = 4;
-const AVERAGE = 4.2;
-const TOTAL_RESPONSES = 480;
 const PURPLE = "#A52E9D";
 
-const RATINGS = [
-  { score: 5, responses: 16 },
-  { score: 4, responses: 12 },
-  { score: 3, responses: 8 },
-  { score: 2, responses: 2 },
-  { score: 1, responses: 4 },
-];
-
-const HISTOGRAM_DATA = [
-  { score: 1, value: 4 },
-  { score: 2, value: 2 },
-  { score: 3, value: 8 },
-  { score: 4, value: 12 },
-  { score: 5, value: 16 },
-];
-
-const TREND_DATA = Array.from({ length: 31 }, (_, i) => ({
-  label: `Mar ${i + 1}`,
-  csat: 10 + Math.floor(Math.random() * 70),
-  responses: 5 + Math.floor(Math.random() * 25),
-}));
-
-function QuestionIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path
-        d="M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1ZM5.5 8.5a.5.5 0 1 1 1 0 .5.5 0 0 1-1 0ZM6 3.5c-.83 0-1.5.67-1.5 1.5a.5.5 0 0 0 1 0c0-.28.22-.5.5-.5s.5.22.5.5c0 .18-.07.27-.33.47l-.1.08C5.83 5.71 5.5 6.04 5.5 6.75a.5.5 0 0 0 1 0c0-.18.07-.27.33-.47l.1-.08C7.17 5.54 7.5 5.21 7.5 4.5 7.5 3.67 6.83 3 6 3.5Z"
-        fill="#9E9D98"
-      />
-    </svg>
-  );
+function csatSeeded(seed: number) {
+  return () => {
+    seed = (seed * 16807 + 0) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
 }
+
+interface CsatPeriodData {
+  score: number;
+  median: number;
+  average: number;
+  total: number;
+  ratings: { score: number; responses: number }[];
+  histogram: { score: number; value: number }[];
+  trend: { label: string; csat: number; responses: number }[];
+}
+
+function generateCsatData(seed: number, month: string, baseScore: number): CsatPeriodData {
+  const rng = csatSeeded(seed);
+  const ratings = [5, 4, 3, 2, 1].map(s => ({
+    score: s,
+    responses: 2 + Math.floor(rng() * 20),
+  }));
+  const histogram = [1, 2, 3, 4, 5].map(s => ({
+    score: s,
+    value: 2 + Math.floor(rng() * 18),
+  }));
+  const total = ratings.reduce((s, r) => s + r.responses, 0);
+  const trend = Array.from({ length: 31 }, (_, i) => ({
+    label: `${month} ${i + 1}`,
+    csat: 30 + Math.floor(rng() * 50),
+    responses: 5 + Math.floor(rng() * 25),
+  }));
+  return {
+    score: baseScore,
+    median: Math.round((3 + rng() * 2) * 10) / 10,
+    average: Math.round((3 + rng() * 2) * 10) / 10,
+    total, ratings, histogram, trend,
+  };
+}
+
+const CSAT_DATA: Record<DatePeriod, CsatPeriodData> = {
+  "Last 30 days": generateCsatData(55, "Mar", 72),
+  "Last 3 months": generateCsatData(88, "Jan", 68),
+  "Last 6 months": generateCsatData(144, "Oct", 75),
+  "All time": generateCsatData(777, "Jun", 70),
+};
 
 function StarIcon() {
   return (
@@ -59,31 +71,30 @@ function StarIcon() {
 }
 
 function GaugeChart({ score }: { score: number }) {
+  // Matches Figma: viewBox 0 0 144 72, center (72,72), r=64, stroke=16
   const cx = 72;
   const cy = 72;
   const r = 64;
   const sw = 16;
   const pct = score / 100;
 
-  // Full semicircle background arc (left to right)
+  // Background: full semicircle from left (8,72) to right (136,72)
   const bgArc = `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy}`;
 
-  // Value arc: starts from right (clockwise from top-right going counter-clockwise visually)
-  // The value path covers (1 - pct) of the semicircle from the end going backwards
-  // Figma draws the colored portion as the "filled" part from left
-  const endAngle = Math.PI * pct; // angle from left side
-  const ex = cx - r * Math.cos(endAngle);
-  const ey = cy - r * Math.sin(endAngle);
+  // Value: from right side going counter-clockwise (matching Figma direction)
+  const angle = Math.PI * (1 - pct);
+  const ex = cx + r * Math.cos(angle);
+  const ey = cy - r * Math.sin(angle);
   const large = pct > 0.5 ? 1 : 0;
   const valArc = `M ${cx + r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`;
 
   return (
-    <div className="flex flex-col items-center relative" style={{ width: 144, height: 120 }}>
-      <svg width="144" height="80" viewBox="0 0 144 80">
+    <div className="flex flex-col items-center relative" style={{ width: 144, height: 108 }}>
+      <svg width="144" height="72" viewBox="0 0 144 72">
         <path d={bgArc} fill="none" stroke="#EFEFEF" strokeWidth={sw} />
         <path d={valArc} fill="none" stroke={PURPLE} strokeWidth={sw} />
       </svg>
-      <div className="absolute flex flex-col items-center" style={{ top: 56, left: "50%" , transform: "translateX(-50%)" }}>
+      <div className="absolute flex flex-col items-center" style={{ top: 56, left: "50%", transform: "translateX(-50%)" }}>
         <span className="text-xs font-normal leading-3 text-title-secondary">CSAT</span>
         <span className="text-[28px] font-semibold text-black leading-8">{score}%</span>
       </div>
@@ -119,13 +130,13 @@ function TooltipCaption({ text }: { text: string }) {
   );
 }
 
-function OverviewView() {
-  const maxResponses = Math.max(...RATINGS.map((r) => r.responses));
+function OverviewView({ data }: { data: CsatPeriodData }) {
+  const maxResponses = Math.max(...data.ratings.map((r) => r.responses));
   return (
     <div className="flex gap-6 items-center w-full">
       <div className="flex flex-1 flex-col h-[176px] justify-between overflow-hidden">
         <div className="flex flex-col pl-2" style={{ gap: "12px" }}>
-          {RATINGS.map((rating) => {
+          {data.ratings.map((rating) => {
             const barWidth = (rating.responses / maxResponses) * 140;
             return (
               <div key={rating.score} className="flex gap-3 items-center w-full h-4">
@@ -141,20 +152,20 @@ function OverviewView() {
           })}
         </div>
         <div className="flex items-center px-2 h-4">
-          <span className="text-sm font-normal text-text-caption">Based on {TOTAL_RESPONSES} responces</span>
+          <span className="text-sm font-normal text-text-caption">Based on {data.total} responces</span>
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-4 items-center justify-center pt-6">
-        <GaugeChart score={CSAT_SCORE} />
+        <GaugeChart score={data.score} />
         <div className="flex gap-2 items-center justify-center">
           <div className="flex gap-3 items-center justify-center px-2.5 py-1">
             <span className="text-sm font-normal text-text-secondary">Median:</span>
-            <span className="text-base font-medium text-title-secondary">{MEDIAN}</span>
+            <span className="text-base font-medium text-title-secondary">{data.median}</span>
           </div>
           <div className="w-px h-6 bg-black/12" />
           <div className="flex gap-3 items-center justify-center px-2.5 py-1">
             <span className="text-sm font-normal text-text-secondary">Average:</span>
-            <span className="text-base font-medium text-title-secondary">{AVERAGE}</span>
+            <span className="text-base font-medium text-title-secondary">{data.average}</span>
           </div>
         </div>
       </div>
@@ -162,11 +173,11 @@ function OverviewView() {
   );
 }
 
-function HistogramView({ period }: { period: string }) {
+function HistogramView({ period, data }: { period: string; data: CsatPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
-  const maxVal = Math.max(...HISTOGRAM_DATA.map((d) => d.value));
+  const maxVal = Math.max(...data.histogram.map((d) => d.value));
 
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -186,23 +197,23 @@ function HistogramView({ period }: { period: string }) {
             }}
             onMouseLeave={() => setHoveredIdx(null)}
           >
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div className="h-px bg-black/8 w-full border-dashed border-t border-black/8" />
-              <div className="h-px bg-black/8 w-full border-dashed border-t border-black/8" />
-              <div className="h-px bg-black/8 w-full" />
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
             </div>
-            {HISTOGRAM_DATA.map((d, i) => {
+            {data.histogram.map((d, i) => {
               const heightPct = (d.value / maxVal) * 100;
               return (
                 <div
                   key={i}
-                  className={`flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
+                  className={`relative z-10 flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
                     hoveredIdx === i ? "bg-[rgba(48,46,42,0.04)]" : ""
                   }`}
                   onMouseEnter={() => setHoveredIdx(i)}
                 >
                   <div
-                    className="w-4 rounded-t transition-all"
+                    className="w-4 rounded-t transition-all duration-300"
                     style={{ height: `${heightPct}%`, backgroundColor: PURPLE }}
                   />
                 </div>
@@ -211,15 +222,15 @@ function HistogramView({ period }: { period: string }) {
             {hoveredIdx !== null && chartRef.current && (() => {
               const cw = chartRef.current!.offsetWidth;
               const ch = chartRef.current!.offsetHeight;
-              const count = HISTOGRAM_DATA.length;
+              const count = data.histogram.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
               const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
                 <Tooltip style={{ left, top, pointerEvents: "none" }}>
-                  <TooltipRow label="Responces:" value={HISTOGRAM_DATA[hoveredIdx].value} />
-                  <TooltipRow label="Share:" value={`${Math.round((HISTOGRAM_DATA[hoveredIdx].value / TOTAL_RESPONSES) * 100)}%`} />
+                  <TooltipRow label="Responces:" value={data.histogram[hoveredIdx].value} />
+                  <TooltipRow label="Share:" value={`${Math.round((data.histogram[hoveredIdx].value / data.total) * 100)}%`} />
                   <TooltipCaption text={period} />
                 </Tooltip>
               );
@@ -229,7 +240,7 @@ function HistogramView({ period }: { period: string }) {
         <div className="flex items-center w-full">
           <div className="w-8 shrink-0" />
           <div className="flex flex-1">
-            {HISTOGRAM_DATA.map((d, i) => (
+            {data.histogram.map((d, i) => (
               <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary">
                 {d.score}
               </div>
@@ -241,11 +252,11 @@ function HistogramView({ period }: { period: string }) {
   );
 }
 
-function TrendView() {
+function TrendView({ data }: { data: CsatPeriodData }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
-  const maxCsat = Math.max(...TREND_DATA.map((d) => d.csat));
+  const maxCsat = Math.max(...data.trend.map((d) => d.csat));
   const labelIndices = [0, 6, 13, 20, 27];
 
   return (
@@ -266,23 +277,23 @@ function TrendView() {
             }}
             onMouseLeave={() => setHoveredIdx(null)}
           >
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
-              <div className="h-px bg-black/8 w-full" />
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)" }} />
             </div>
-            {TREND_DATA.map((d, i) => {
+            {data.trend.map((d, i) => {
               const heightPct = (d.csat / maxCsat) * 100;
               return (
                 <div
                   key={i}
-                  className={`flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
+                  className={`relative z-10 flex flex-1 h-full items-end justify-center cursor-pointer transition-colors ${
                     hoveredIdx === i ? "bg-[rgba(48,46,42,0.04)]" : ""
                   }`}
                   onMouseEnter={() => setHoveredIdx(i)}
                 >
                   <div
-                    className="w-full rounded-t-sm"
+                    className="w-2 mx-auto rounded-t-sm transition-all duration-300"
                     style={{ height: `${heightPct}%`, backgroundColor: PURPLE }}
                   />
                 </div>
@@ -291,16 +302,16 @@ function TrendView() {
             {hoveredIdx !== null && chartRef.current && (() => {
               const cw = chartRef.current!.offsetWidth;
               const ch = chartRef.current!.offsetHeight;
-              const count = TREND_DATA.length;
+              const count = data.trend.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
               const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
                 <Tooltip style={{ left, top, pointerEvents: "none" }}>
-                  <TooltipRow label="CSAT:" value={`${TREND_DATA[hoveredIdx].csat}%`} />
-                  <TooltipRow label="Responces:" value={TREND_DATA[hoveredIdx].responses} />
-                  <TooltipCaption text={TREND_DATA[hoveredIdx].label} />
+                  <TooltipRow label="CSAT:" value={`${data.trend[hoveredIdx].csat}%`} />
+                  <TooltipRow label="Responces:" value={data.trend[hoveredIdx].responses} />
+                  <TooltipCaption text={data.trend[hoveredIdx].label} />
                 </Tooltip>
               );
             })()}
@@ -309,8 +320,8 @@ function TrendView() {
         <div className="flex items-center w-full">
           <div className="w-8 shrink-0" />
           <div className="flex flex-1">
-            {TREND_DATA.map((d, i) => (
-              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary">
+            {data.trend.map((d, i) => (
+              <div key={i} className="flex-1 text-center text-xs font-normal text-text-secondary whitespace-nowrap">
                 {labelIndices.includes(i) ? d.label : ""}
               </div>
             ))}
@@ -331,6 +342,7 @@ export default function CsatScore() {
   const viewLabel: ViewLabel = viewMode === "overview" ? "Overview" : "Detailed";
   const handleViewChange = (v: ViewLabel) => setViewMode(v === "Overview" ? "overview" : "detailed");
 
+  const data = CSAT_DATA[period];
   const periods: DatePeriod[] = ["Last 30 days", "Last 3 months", "Last 6 months", "All time"];
   const tabs: { key: DetailedTab; label: string }[] = [
     { key: "histogram", label: "Histogram" },
@@ -343,9 +355,10 @@ export default function CsatScore() {
       <div className="flex items-center justify-between pl-2">
         <div className="flex gap-2 items-center">
           <span className="text-sm font-semibold text-title-secondary leading-4">Customer Satisfaction Score</span>
-          <div className="bg-surface-secondary flex items-center p-0.5 rounded-full">
-            <QuestionIcon />
-          </div>
+          <QuestionBadge
+            title="Customer Satisfaction Score"
+            description="A metric that measures how satisfied customers are with a product, service, or experience."
+          />
         </div>
         <div className="flex gap-2 items-center">
           <Dropdown value={viewLabel} options={[...viewOptions]} onChange={handleViewChange} />
@@ -363,7 +376,7 @@ export default function CsatScore() {
                 className={`px-3 py-1.5 text-sm font-normal border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
                   detailedTab === tab.key
                     ? "bg-[#f7f7f6] text-title-primary"
-                    : "bg-white text-text-secondary"
+                    : "bg-white text-text-secondary hover:bg-[#f7f7f6]"
                 }`}
               >
                 {tab.label}
@@ -373,9 +386,9 @@ export default function CsatScore() {
         </div>
       )}
 
-      {viewMode === "overview" && <OverviewView />}
-      {viewMode === "detailed" && detailedTab === "histogram" && <HistogramView period={period} />}
-      {viewMode === "detailed" && detailedTab === "trend" && <TrendView />}
+      {viewMode === "overview" && <OverviewView data={data} />}
+      {viewMode === "detailed" && detailedTab === "histogram" && <HistogramView period={period} data={data} />}
+      {viewMode === "detailed" && detailedTab === "trend" && <TrendView data={data} />}
     </div>
   );
 }
