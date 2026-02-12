@@ -300,7 +300,7 @@ function HistogramView({ period }: { period: string }) {
 }
 
 // Stacked view
-function StackedView({ period }: { period: string }) {
+function StackedView(_props: { period: string }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -392,7 +392,7 @@ function StackedView({ period }: { period: string }) {
 }
 
 // Trend view
-function TrendView({ period }: { period: string }) {
+function TrendView(_props: { period: string }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [mouseY, setMouseY] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
