@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__figma-dev-mode-mcp-server__get_metadata",
+      "mcp__figma-dev-mode-mcp-server__get_design_context",
+      "mcp__figma-dev-mode-mcp-server__get_screenshot",
+      "Bash(claude mcp:*)",
+      "Bash(npm create:*)",
+      "Bash(npx --yes create-vite@latest . --template react-ts)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl:*)",
+      "Bash(npx vite:*)",
+      "Bash(lsof:*)"
+    ]
+  }
+}

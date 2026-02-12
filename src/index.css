@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-inter: "Inter", sans-serif;
+  --color-title-primary: #302E2A;
+  --color-title-secondary: #444444;
+  --color-text-secondary: #73726C;
+  --color-text-caption: #9E9D98;
+  --color-surface-secondary: #F5F5F5;
+  --color-surface-base: #FFFFFF;
+  --color-brand-accent: #1966CA;
+  --color-border: rgba(48, 46, 42, 0.12);
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background-color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
