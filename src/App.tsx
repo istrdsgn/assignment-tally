@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import TopHeader from "./components/TopHeader";
 import MultiplyResponse from "./components/MultiplyResponse";
 import NpsScore from "./components/NpsScore";
