@@ -20,6 +20,10 @@
   --color-border: rgba(48, 46, 42, 0.12);
 }
 
+html {
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   font-family: "Inter", sans-serif;
