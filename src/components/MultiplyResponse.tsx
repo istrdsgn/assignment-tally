@@ -255,18 +255,20 @@ export default function MultiplyResponse() {
 
         <div className="flex gap-2 items-center">
           {/* Segmented Control */}
-          <div className="flex items-center border border-black/12 rounded-md shadow-[0px_0.5px_2px_rgba(0,0,0,0.16)] overflow-hidden">
-            {chartTypes.map(({ type, icon }) => (
-              <button
-                key={type}
-                onClick={() => setChartType(type)}
-                className={`flex items-center justify-center p-1.5 border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
-                  chartType === type ? "bg-[#f7f7f6]" : "bg-white hover:bg-[#f7f7f6]"
-                }`}
-              >
-                <img src={icon} alt="" className="w-[14px] h-[14px]" style={{ opacity: chartType === type ? 1 : 0.5 }} />
-              </button>
-            ))}
+          <div className="border-[0.5px] border-[rgba(0,0,0,0.12)] rounded-md w-fit">
+            <div className="flex items-center rounded-md shadow-[0px_0.5px_2px_rgba(0,0,0,0.16)] overflow-hidden h-7">
+              {chartTypes.map(({ type, icon }) => (
+                <button
+                  key={type}
+                  onClick={() => setChartType(type)}
+                  className={`flex items-center justify-center p-1.5 h-full border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
+                    chartType === type ? "bg-[#f7f7f6]" : "bg-white hover:bg-[#f7f7f6]"
+                  }`}
+                >
+                  <img src={icon} alt="" className="w-[14px] h-[14px]" style={{ opacity: chartType === type ? 1 : 0.5 }} />
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Date Filter Dropdown */}
@@ -347,7 +349,10 @@ export default function MultiplyResponse() {
             const barCenterX = ((hoveredIndex + 0.5) / count) * cw;
             const tooltipW = 180;
             const tooltipH = 110;
-            const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
+            // Stick to left or right edge based on bar position
+            const left = barCenterX < cw / 2
+              ? Math.min(barCenterX + 20, cw - tooltipW)
+              : Math.max(0, barCenterX - tooltipW - 20);
             const top = Math.max(0, Math.min(mouseY + 12, ch - tooltipH));
             return (
               <Tooltip
@@ -355,7 +360,7 @@ export default function MultiplyResponse() {
                 responses={Math.round((choices[hoveredIndex].value / 100) * totalResponses)}
                 share={`${choices[hoveredIndex].value}%`}
                 period={period}
-                style={{ left, top, pointerEvents: "none" }}
+                style={{ left, top, pointerEvents: "none", transition: "left 0.15s ease, top 0.1s ease" }}
               />
             );
           })()}

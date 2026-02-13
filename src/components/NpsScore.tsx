@@ -102,16 +102,27 @@ function GaugeChart({ score }: { score: number }) {
     return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
   };
 
-  // Detractors 1-6 = 6/10 = 108°, Passives 7-8 = 2/10 = 36°, Promoters 9-10 = 2/10 = 36°
+  // Pointer: score [-100,100] → angle [-90°,+90°]
+  const pointerAngle = score * 0.9;
+  const innerR = r - sw / 2; // 56
+  const tipY = cy - innerR + 8; // 8px inward from inner edge
+  const baseY = tipY + 12;
+  const pointerColor = score <= 20 ? "#D8D8D8" : score <= 60 ? "#FB813F" : "#27A674";
+
   return (
     <div className="flex flex-col items-center relative" style={{ width: 144, height: 108 }}>
-      <svg width="144" height="72" viewBox="0 0 144 72">
+      <svg width="144" height="72" viewBox="0 0 144 72" overflow="visible">
         <path d={arcPath(0, 108)} fill="none" stroke="#D8D8D8" strokeWidth={sw} />
         <path d={arcPath(108, 144)} fill="none" stroke="#FB813F" strokeWidth={sw} />
         <path d={arcPath(144, 180)} fill="none" stroke="#27A674" strokeWidth={sw} />
+        <g transform={`rotate(${pointerAngle} ${cx} ${cy})`}>
+          <polygon points={`${cx},${tipY} ${cx - 6},${baseY} ${cx + 6},${baseY}`} fill={pointerColor} stroke={pointerColor} strokeWidth={2} strokeLinejoin="round" />
+        </g>
       </svg>
       <div className="absolute flex flex-col items-center" style={{ top: 56, left: "50%", transform: "translateX(-50%)" }}>
         <span className="text-xs font-normal leading-3 text-title-secondary">NPS</span>
+      </div>
+      <div className="absolute flex items-center justify-center h-8" style={{ top: 76, left: "50%", transform: "translateX(-50%)" }}>
         <span className="text-[28px] font-semibold text-black leading-8">{score}</span>
       </div>
     </div>
@@ -227,8 +238,8 @@ function HistogramView({ period, data }: { period: string; data: NpsPeriodData }
       <div className="flex flex-col gap-4 items-end px-2 w-full">
         <div className="flex gap-2 items-center w-full">
           <div className="flex flex-col h-[120px] justify-between w-8 text-xs font-normal text-text-secondary shrink-0">
-            <span>100</span>
-            <span>50</span>
+            <span>{maxVal}</span>
+            <span>{Math.round(maxVal / 2)}</span>
             <span>0</span>
           </div>
           <div
@@ -243,7 +254,7 @@ function HistogramView({ period, data }: { period: string; data: NpsPeriodData }
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
-              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px solid rgba(0,0,0,0.08)" }} />
             </div>
             {data.histogram.map((d, i) => {
               const heightPct = (d.value / maxVal) * 100;
@@ -271,10 +282,12 @@ function HistogramView({ period, data }: { period: string; data: NpsPeriodData }
               const count = data.histogram.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
-              const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
+              const left = barCenterX < cw / 2
+                ? Math.min(barCenterX + 20, cw - tooltipW)
+                : Math.max(0, barCenterX - tooltipW - 20);
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
-                <NpsTooltip style={{ left, top, pointerEvents: "none" }}>
+                <NpsTooltip style={{ left, top, pointerEvents: "none", transition: "left 0.15s ease, top 0.1s ease" }}>
                   <TooltipRow label="Responces:" value={data.histogram[hoveredIdx].value} />
                   <TooltipRow label="Share" value={`${Math.round((data.histogram[hoveredIdx].value / data.total) * 100)}%`} />
                   <TooltipCaption text={period} />
@@ -328,7 +341,7 @@ function StackedView({ data }: { period: string; data: NpsPeriodData }) {
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
-              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px solid rgba(0,0,0,0.08)" }} />
             </div>
             {visibleData.map((d, i) => (
               <div
@@ -360,10 +373,12 @@ function StackedView({ data }: { period: string; data: NpsPeriodData }) {
               const count = visibleData.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
-              const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
+              const left = barCenterX < cw / 2
+                ? Math.min(barCenterX + 20, cw - tooltipW)
+                : Math.max(0, barCenterX - tooltipW - 20);
               const top = Math.max(0, Math.min(mouseY + 12, ch - 140));
               return (
-                <NpsTooltip style={{ left, top, pointerEvents: "none" }}>
+                <NpsTooltip style={{ left, top, pointerEvents: "none", transition: "left 0.15s ease, top 0.1s ease" }}>
                   <TooltipRow label="NPC" value={visibleData[hoveredIdx].promoters - visibleData[hoveredIdx].detractors} />
                   <TooltipRow label="Responces:" value={visibleData[hoveredIdx].total} />
                   <TooltipRow label="Promoters:" value={visibleData[hoveredIdx].rawPromoters} />
@@ -404,8 +419,8 @@ function TrendView({ data }: { period: string; data: NpsPeriodData }) {
       <div className="flex flex-col gap-4 items-end px-2 w-full">
         <div className="flex gap-2 items-center w-full">
           <div className="flex flex-col h-[120px] justify-between w-8 text-xs font-normal text-text-secondary shrink-0">
-            <span>100</span>
-            <span>50</span>
+            <span>{maxNps}</span>
+            <span>{Math.round(maxNps / 2)}</span>
             <span>0</span>
           </div>
           <div
@@ -420,7 +435,7 @@ function TrendView({ data }: { period: string; data: NpsPeriodData }) {
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
               <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
-              <div className="w-full" style={{ height: 0, borderTop: "1px dashed rgba(0,0,0,0.08)", backgroundImage: "none" }} />
+              <div className="w-full" style={{ height: 0, borderTop: "1px solid rgba(0,0,0,0.08)" }} />
             </div>
             {data.trend.map((d, i) => {
               const heightPct = (d.nps / maxNps) * 100;
@@ -445,10 +460,12 @@ function TrendView({ data }: { period: string; data: NpsPeriodData }) {
               const count = data.trend.length;
               const barCenterX = ((hoveredIdx + 0.5) / count) * cw;
               const tooltipW = 180;
-              const left = Math.max(0, Math.min(barCenterX - tooltipW / 2, cw - tooltipW));
+              const left = barCenterX < cw / 2
+                ? Math.min(barCenterX + 20, cw - tooltipW)
+                : Math.max(0, barCenterX - tooltipW - 20);
               const top = Math.max(0, Math.min(mouseY + 12, ch - 100));
               return (
-                <NpsTooltip style={{ left, top, pointerEvents: "none" }}>
+                <NpsTooltip style={{ left, top, pointerEvents: "none", transition: "left 0.15s ease, top 0.1s ease" }}>
                   <TooltipRow label="NPS:" value={data.trend[hoveredIdx].nps} />
                   <TooltipRow label="Responces:" value={data.trend[hoveredIdx].responses} />
                   <TooltipCaption text={data.trend[hoveredIdx].label} />
@@ -509,20 +526,22 @@ export default function NpsScore() {
       {/* Detailed tabs */}
       {viewMode === "detailed" && (
         <div className="px-2 pb-3">
-          <div className="flex items-center border border-black/12 rounded-md shadow-[0px_0.5px_2px_rgba(0,0,0,0.16)] overflow-hidden w-fit h-7">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setDetailedTab(tab.key)}
-                className={`px-3 py-1.5 text-sm font-normal border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
-                  detailedTab === tab.key
-                    ? "bg-[#f7f7f6] text-title-primary"
-                    : "bg-white text-text-secondary hover:bg-[#f7f7f6]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="border-[0.5px] border-[rgba(0,0,0,0.12)] rounded-md w-fit">
+            <div className="flex items-center rounded-md shadow-[0px_0.5px_2px_rgba(0,0,0,0.16)] overflow-hidden h-7">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setDetailedTab(tab.key)}
+                  className={`px-3 py-1.5 text-sm font-normal border-r border-[#e6e6e5] last:border-r-0 transition-colors ${
+                    detailedTab === tab.key
+                      ? "bg-[#f7f7f6] text-title-primary"
+                      : "bg-white text-text-secondary hover:bg-[#f7f7f6]"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
